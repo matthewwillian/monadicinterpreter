@@ -24,16 +24,7 @@ version := "1.0"
 // Want to use a published library in your project?
 // You can define other libraries as dependencies in your build like this:
 libraryDependencies += "org.typelevel" %% "cats-free" % "1.1.0"
-// Here, `libraryDependencies` is a set of dependencies, and by using `+=`,
-// we're adding the cats dependency to the set of dependencies that sbt will go
-// and fetch when it starts up.
-// Now, in any Scala file, you can import classes, objects, etc, from cats with
-// a regular import.
-
-// TIP: To find the "dependency" that you need to add to the
-// `libraryDependencies` set, which in the above example looks like this:
-
-// "org.typelevel" %% "cats-core" % "1.0.1"
+libraryDependencies += "org.scala-lang.modules" %% "scala-parser-combinators" % "1.1.1"
 
 // You can use Scaladex, an index of all known published Scala libraries. There,
 // after you find the library you want, you can just copy/paste the dependency
