@@ -6,45 +6,53 @@ import cats.Monoid
 import cats.Monad
 
 object Interpreter {
-  private type Location = Int
-  private type Index = List[String]
-  private type Stack = List[Int]
+  type Location = Int
+  type Index = List[String]
 
-  private def position(name: String, index: Index) = index.indexOf(name)
+  case class Stack(values: List[Int]) {
+    def fetch(loc: Location): Int = values(loc)
 
-  private def fetch(loc: Location, stack: Stack): Int = stack(loc)
+    def put(loc: Location, value: Int): Stack = Stack(values.updated(loc, value))
 
-  private def put(loc: Location, value: Int, stack: Stack): Stack = stack.updated(loc, value)
+    def push(value: Int): Stack = Stack(value :: values)
 
-  private type StOut[A] = ReaderWriterState[Unit, String, Stack, A]
+    def pop: Stack = Stack(values.tail)
+  }
 
-  private object StOut {
-    def apply[A](f: Stack => (String, Stack, A)): StOut[A] = {
-      ReaderWriterState { case ((), stack: Stack) => f(stack) }
-    }
+  type StOut[A] = ReaderWriterState[Unit, String, Stack, A]
 
+  object StOut {
     def pure[A](a: A): StOut[A] = ReaderWriterState.pure[Unit, String, Stack, A](a)
   }
 
-  private object Actions {
-    def getFrom(i: Location): StOut[Int] = StOut(ns => ("", ns, fetch(i, ns)))
+  object MonadicActions {
+    def getFrom(i: Location): StOut[Int] =
+      StOut
+        .pure(())
+        .get
+        .map(_.fetch(i))
 
-    def write(i: Location, value: Int): StOut[Unit] = StOut(ns => ("", put(i, value, ns), ()))
+    def write(i: Location, value: Int): StOut[Unit] =
+      StOut.pure(())
+        .modify(_.put(i, value))
 
-    def push(value: Int): StOut[Unit] = StOut(ns => ("", value :: ns, ()))
+    def push(value: Int): StOut[Unit] =
+      StOut.pure(())
+        .modify(_.push(value))
 
-    def pop: StOut[Unit] = StOut {
-      case _ :: ns => ("", ns, ())
-      case Nil     => throw new IllegalStateException("tried to pop from empty stack")
-    }
+    def pop: StOut[Unit] =
+      StOut.pure(())
+        .modify(_.pop)
 
-    def output(a: Any) = StOut(n => (a.toString, n, ()))
+    def output(a: Any) =
+      StOut.pure(())
+        .tell(a.toString())
   }
 
-  private def eval(exp: Expression, index: Index): StOut[Int] = {
+  def eval(exp: Expression, index: Index): StOut[Int] = {
     exp match {
       case Constant(n) => StOut.pure(n)
-      case Variable(x) => Actions.getFrom(position(x, index))
+      case Variable(x) => MonadicActions.getFrom(index.indexOf(x))
       case Minus(x, y) =>
         for {
           a <- eval(x, index)
@@ -69,10 +77,10 @@ object Interpreter {
   def interpret(command: Command, index: Index): StOut[Unit] = {
     command match {
       case Assign(name, value) =>
-        val loc = position(name, index)
+        val loc = index.indexOf(name)
         for {
           v <- eval(value, index)
-          _ <- Actions.write(loc, v)
+          _ <- MonadicActions.write(loc, v)
         } yield ()
       case Sequence(s1, s2) =>
         for {
@@ -96,17 +104,17 @@ object Interpreter {
       case Declare(name, expr, statement) =>
         for {
           v <- eval(expr, index)
-          _ <- Actions.push(v)
+          _ <- MonadicActions.push(v)
           _ <- interpret(statement, name :: index)
-          _ <- Actions.pop
+          _ <- MonadicActions.pop
         } yield ()
       case Print(e) =>
         for {
           v <- eval(e, index)
-          _ <- Actions.output(v)
+          _ <- MonadicActions.output(v)
         } yield ()
     }
   }
 
-  def apply(command: Command): String = interpret(command, List()).runL(Unit, List()).value
+  def apply(command: Command): String = interpret(command, List()).runL(Unit, Stack(List())).value
 }

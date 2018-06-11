@@ -31,10 +31,7 @@ object Main extends App {
       .get
 
   def interpret(command: Command) =
-    Interpreter
-      .interpret(command, List())
-      .runL(Unit, List())
-      .value
+    Interpreter.apply(_)
 
   def run(program: String) = {
     val pipeline =
