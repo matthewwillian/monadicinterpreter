@@ -29,8 +29,7 @@ object Interpreter {
     def getFrom(i: Location): StOut[Int] =
       StOut
         .pure(())
-        .get
-        .map(_.fetch(i))
+        .inspect(_.fetch(i))
 
     def write(i: Location, value: Int): StOut[Unit] =
       StOut.pure(())
