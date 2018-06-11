@@ -1,6 +1,8 @@
 package monadicinterpreter
 
-object Main extends App {
+import scala.util.parsing.combinator._
+
+object TestData {
   val program = """
 declare x = 150 in
     declare y = 200 in
@@ -20,6 +22,26 @@ declare x = 150 in
         ),
         Print(Variable("y"))
       )))
-  val parsedProgram = LanguageParser.parse(LanguageParser.command, program)
-  println(Environment.interpret(parsedProgram.get, List()).runL(Unit, List()).value)
+}
+
+object Main extends App {
+  def parse(program: String): Command =
+    LanguageParsers
+      .parse(LanguageParsers.command, program)
+      .get
+
+  def interpret(command: Command) =
+    Interpreter
+      .interpret(command, List())
+      .runL(Unit, List())
+      .value
+
+  def run(program: String) = {
+    val pipeline =
+      parse _ andThen
+        interpret andThen
+        println
+
+    pipeline(program)
+  }
 }

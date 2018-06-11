@@ -10,16 +10,15 @@ object Interpreter {
   private type Index = List[String]
   private type Stack = List[Int]
 
-  // TODO: rewrite these using std library methods
   private def position(name: String, index: Index) = index.indexOf(name)
 
   private def fetch(loc: Location, stack: Stack): Int = stack(loc)
 
   private def put(loc: Location, value: Int, stack: Stack): Stack = stack.updated(loc, value)
 
-  type StOut[A] = ReaderWriterState[Unit, String, Stack, A]
+  private type StOut[A] = ReaderWriterState[Unit, String, Stack, A]
 
-  object StOut {
+  private object StOut {
     def apply[A](f: Stack => (String, Stack, A)): StOut[A] = {
       ReaderWriterState { case ((), stack: Stack) => f(stack) }
     }
@@ -27,7 +26,7 @@ object Interpreter {
     def pure[A](a: A): StOut[A] = ReaderWriterState.pure[Unit, String, Stack, A](a)
   }
 
-  object Actions {
+  private object Actions {
     def getFrom(i: Location): StOut[Int] = StOut(ns => ("", ns, fetch(i, ns)))
 
     def write(i: Location, value: Int): StOut[Unit] = StOut(ns => ("", put(i, value, ns), ()))
@@ -42,7 +41,7 @@ object Interpreter {
     def output(a: Any) = StOut(n => (a.toString, n, ()))
   }
 
-  def eval(exp: Expression, index: Index): StOut[Int] = {
+  private def eval(exp: Expression, index: Index): StOut[Int] = {
     exp match {
       case Constant(n) => StOut.pure(n)
       case Variable(x) => Actions.getFrom(position(x, index))
@@ -108,4 +107,6 @@ object Interpreter {
         } yield ()
     }
   }
+
+  def apply(command: Command): String = interpret(command, List()).runL(Unit, List()).value
 }

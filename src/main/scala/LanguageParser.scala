@@ -2,16 +2,8 @@ package monadicinterpreter
 
 import scala.util.parsing.combinator._
 
-object LanguageParser extends RegexParsers {
-  def many[A](parser: Parser[A]): Parser[List[A]] = {
-    val parseMore = for {
-      x <- parser
-      xs <- many(parser)
-    } yield (x :: xs)
-    parseMore | "" ^^ { _ => Nil }
-  }
-
-  implicit class ChainCombinator[T](parser: Parser[T]) {
+trait Combinators extends RegexParsers {
+  implicit class Chain[T](parser: Parser[T]) {
     def chain(op: Parser[T => T => T]): Parser[T] = {
       for {
         x <- parser
@@ -25,9 +17,18 @@ object LanguageParser extends RegexParsers {
         fys.foldLeft(x) { case (x, (f, y)) => f(x)(y) }
       }
     }
-
   }
 
+  def many[A](parser: Parser[A]): Parser[List[A]] = {
+    val parseMore = for {
+      x <- parser
+      xs <- many(parser)
+    } yield (x :: xs)
+    parseMore | "" ^^ { _ => Nil }
+  }
+}
+
+trait ExpressionParsers extends Combinators {
   def number: Parser[Int] = """(0|[1-9]\d*)""".r ^^ { _.toInt }
   def identifier: Parser[String] = """[a-zA-Z]+""".r ^^ { _.toString }
 
@@ -38,7 +39,9 @@ object LanguageParser extends RegexParsers {
     identifier ^^ { Variable(_) } |
       number ^^ { Constant(_) } |
       "(" ~ rexp ~ ")" ^^ { case _ ~ r ~ _ => r }
+}
 
+trait CommandParsers extends ExpressionParsers {
   def command: Parser[Command] = assign | seqv | whileCommand | declare | printe
   def assign: Parser[Command] = identifier ~ ":=" ~ rexp ^^ { case i ~ _ ~ r => Assign(i, r) }
   def seqv: Parser[Command] = "{" ~ command ~ ";" ~ command ~ "}" ^^ {
@@ -53,3 +56,6 @@ object LanguageParser extends RegexParsers {
   }
   def printe: Parser[Command] = "print" ~ rexp ^^ { case _ ~ e => Print(e) }
 }
+
+object LanguageParsers extends CommandParsers
+
