@@ -92,13 +92,13 @@ object Interpreter {
           _ <- interpret(if (x == 1) s1 else s2, index)
         } yield ()
       case While(e, b) => {
-        def loop2(): StOut[Unit] = { // TODO: figure out how to make this work with for notation
+        def loop(): StOut[Unit] = { // TODO: figure out how to make this work with for notation
           eval(e, index).flatMap {
-            case 1 => interpret(b, index).flatMap((_) => loop2())
+            case 1 => interpret(b, index).flatMap((_) => loop())
             case 0 => StOut.pure(())
           }
         }
-        loop2()
+        loop()
       }
       case Declare(name, expr, statement) =>
         for {
@@ -115,5 +115,5 @@ object Interpreter {
     }
   }
 
-  def apply(command: Command): String = interpret(command, List()).runL(Unit, Stack(List())).value
+  def apply(command: Command): String = interpret(command, List()).runL(Unit, Stack(Nil)).value
 }

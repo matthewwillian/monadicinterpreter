@@ -32,9 +32,20 @@ trait ExpressionParsers extends Combinators {
   def number: Parser[Int] = """(0|[1-9]\d*)""".r ^^ { _.toInt }
   def identifier: Parser[String] = """[a-zA-Z]+""".r ^^ { _.toString }
 
-  def rexp: Parser[Expression] = expr.chain(">" ^^ { _ => x: Expression => y: Expression => Greater(x, y) })
-  def expr: Parser[Expression] = term.chain("-" ^^ { _ => x: Expression => y: Expression => Minus(x, y) })
-  def term: Parser[Expression] = factor.chain("*" ^^ { _ => x: Expression => y: Expression => Times(x, y) })
+  // Operators
+  def relationOperators: Parser[Expression => Expression => Expression] = // TODO: equals operator
+    ">" ^^ { _ => x: Expression => y: Expression => Greater(x, y) } |
+      "<" ^^ { _ => x: Expression => y: Expression => Greater(y, x) }
+  def additionOperators: Parser[Expression => Expression => Expression] =
+    "-" ^^ { _ => x: Expression => y: Expression => Minus(x, y) } |
+      "+" ^^ { _ => x: Expression => y: Expression => Minus(x, Times(y, Constant(-1))) }
+  def multiplicationOperators: Parser[Expression => Expression => Expression] =
+    "*" ^^ { _ => x: Expression => y: Expression => Times(x, y) }
+
+  def rexp: Parser[Expression] = expr chain relationOperators
+  def expr: Parser[Expression] = term chain additionOperators
+  def term: Parser[Expression] = factor chain multiplicationOperators
+
   def factor: Parser[Expression] =
     identifier ^^ { Variable(_) } |
       number ^^ { Constant(_) } |
@@ -42,7 +53,7 @@ trait ExpressionParsers extends Combinators {
 }
 
 trait CommandParsers extends ExpressionParsers {
-  def command: Parser[Command] = assign | seqv | whileCommand | declare | printe
+  def command: Parser[Command] = assign | seqv | whileCommand | cond | declare | printe
   def assign: Parser[Command] = identifier ~ ":=" ~ rexp ^^ { case i ~ _ ~ r => Assign(i, r) }
   def seqv: Parser[Command] = "{" ~ command ~ ";" ~ command ~ "}" ^^ {
     case _ ~ c1 ~ _ ~ c2 ~ _ => Sequence(c1, c2)
@@ -50,7 +61,7 @@ trait CommandParsers extends ExpressionParsers {
   def whileCommand: Parser[Command] = "while" ~ rexp ~ "do" ~ command ^^ {
     case _ ~ e ~ _ ~ c => While(e, c)
   }
-
+  def cond: Parser[Command] = "if" ~ rexp ~ "then" ~ command ~ "else" ~ command ^^ { case _ ~ e ~ _ ~ c1 ~ _ ~ c2 => Cond(e, c1, c2) }
   def declare: Parser[Command] = "declare" ~ identifier ~ "=" ~ rexp ~ "in" ~ command ^^ {
     case _ ~ i ~ _ ~ e ~ _ ~ c => Declare(i, e, c)
   }
